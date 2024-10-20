@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeatherNow</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.css"
+      crossorigin="anonymous"
+    ></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      /* Teal and bold color scheme */
+      body {
+        background: #f0f9fa;
+      }
+
+      /* Sidebar Styling */
+      .sidebar {
+        background: linear-gradient(to bottom right, #38b2ac, #2c7a7b);
+        transition: transform 0.3s ease-in-out;
+      }
+      .sidebar-hidden {
+        transform: translateX(-100%);
+      }
+
+      /* Sidebar Buttons */
+      .sidebar-button {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        transition: background 0.3s;
+        cursor: pointer;
+      }
+      .sidebar-button:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      .sidebar-button i {
+        margin-right: 0.75rem;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 1024px) {
+        .sidebar {
+          transform: translateX(-100%);
+          position: absolute;
+          top: 0;
+          left: 0;
+          height: 100vh;
+          z-index: 20;
+        }
+        .hamburger {
+          display: block;
+        }
+        .sidebar-active {
+          transform: translateX(0);
+        }
+      }
+
+      /* Modal for Mobile Sidebar */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 30;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 400px;
+        border-radius: 10px;
+      }
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+      }
+      .close:hover,
+      .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      /* Search and Main Content Styling */
+      .search-container {
+        display: flex;
+        align-items: center;
+        background-color: white;
+        border-radius: 9999px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        padding: 0.5rem;
+        max-width: 600px;
+      }
+
+      .search-input {
+        flex: 1;
+        padding-left: 2.5rem;
+        padding-right: 1rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        border: none;
+        outline: none;
+        font-size: 1rem;
+        border-radius: 9999px 0 0 9999px;
+      }
+
+      .search-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 1.25rem;
+        width: 1.25rem;
+        color: #2c7a7b;
+      }
+      .search-btn {
+        background: linear-gradient(to right, #38b2ac, #319795);
+        color: white;
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 0 9999px 9999px 0;
+        font-weight: bold;
+        transition: transform 0.3s ease, background 0.3s ease;
+        cursor: pointer;
+      }
+      .search-btn:hover {
+        transform: scale(1.05);
+        background: linear-gradient(to right, #319795, #2c7a7b);
+      }
+
+      @media screen and (max-width: 768px) {
+        .search-container {
+          width: 100%;
+          padding: 1px;
+        }
+        .search-input {
+          padding-left: 1.5rem;
+          padding-right: 1rem;
+          padding-top: 0.75rem;
+          padding-bottom: 0.75rem;
+        }
+        .search-btn {
+          padding: 0.75rem 1.5rem;
+        }
+      }
+
+      .widget-content {
+        min-height: 200px;
+        animation: fadeIn 0.5s ease-in-out;
+      }
+
+      .weather-widget {
+        border-radius: 15px;
+        color: white;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .chart-container {
+        background: #ffffff;
+        border: 2px solid #38b2ac;
+        padding: 1rem;
+        border-radius: 15px;
+        animation: fadeIn 0.5s ease-in-out;
+      }
+
+      .loader {
+        border: 6px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 6px solid #319795;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+        margin: auto;
+      }
+
+      @keyframes fadeIn {
+        0% {
+          opacity: 0;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body class="h-screen flex">
+    <!-- Hamburger Menu -->
+    <div class="absolute z-10 top-2 left-2 lg:hidden" id="hamburger">
+      <button class="rounded-full p-2 bg-gray-100 hover:bg-gray-200">
+        <span><img src="hamburger.png" width="20px" /></span>
+      </button>
+    </div>
+    <!-- Sidebar -->
+    <div
+      class="w-64 sidebar text-white shadow-lg flex flex-col justify-between lg:transform-none lg:relative"
+    >
+      <div class="p-6">
+        <h1 class="text-4xl font-bold mb-10 text-center">WeatherNow</h1>
+        <nav class="space-y-4">
+          <a
+            href="/index.html"
+            class="w-full text-left p-2 rounded flex items-center sidebar-button"
+          >
+            <i class="fas fa-home"></i>
+            <span class="font-semibold">Dashboard</span>
+          </a>
+          <a
+            href="/tables.html"
+            class="w-full text-left p-2 rounded flex items-center sidebar-button"
+          >
+            <i class="fas fa-table"></i>
+            <span class="font-semibold">Tables</span>
+          </a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Mobile Sidebar Modal -->
+    <div id="mobileSidebar" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h1 class="text-4xl font-bold mb-10 text-center">WeatherNow</h1>
+        <nav class="space-y-4">
+          <a
+            href="/index.html"
+            class="w-full text-left p-2 rounded flex items-center sidebar-button"
+          >
+            <i class="fas fa-home"></i>
+            <span class="font-semibold">Dashboard</span>
+          </a>
+          <a
+            href="/tables.html"
+            class="w-full text-left p-2 rounded flex items-center sidebar-button"
+          >
+            <i class="fas fa-table"></i>
+            <span class="font-semibold">Tables</span>
+          </a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="flex-1 p-8 overflow-auto relative">
+      <!-- Profile Icon -->
+      <div class="absolute right-10 top-5">
+        <button class="rounded-full p-2 bg-gray-100 hover:bg-gray-200">
+          <span><i class="fas fa-user-circle text-teal-700"></i></span>
+        </button>
+      </div>
+
+      <!-- Search section -->
+      <div class="flex justify-center items-center mb-8">
+        <div class="relative search-container">
+          <input
+            id="cityInput"
+            type="text"
+            placeholder="Enter city"
+            class="search-input"
+          />
+          <span class="absolute search-icon"
+            ><i class="fas fa-search"></i
+          ></span>
+          <button id="searchBtn" class="search-btn">Search</button>
+        </div>
+      </div>
+
+      <!-- Unit Conversion Toggle -->
+      <div class="flex justify-center mb-4">
+        <button id="unitToggle" class="toggle-btn">Switch to °F</button>
+      </div>
+
+      <!-- Loading Spinner (hidden by default) -->
+      <div id="loader" class="loader hidden"></div>
+
+      <!-- Default state -->
+      <div id="defaultState" class="text-center text-3xl text-gray-600">
+        Please search for a city to display the weather.
+      </div>
+
+      <!-- Weather widget (Hidden by default) -->
+      <div
+        id="weatherCard"
+        class="mb-8 p-8 rounded-lg shadow-lg text-white widget-content weather-widget hidden"
+      >
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 id="cityName" class="text-2xl md:text-5xl font-bold mb-2">
+              City
+            </h2>
+            <p id="weatherDescription" class="text-xl italic">
+              Weather description
+            </p>
+            <div class="flex flex-col md:flex-row md:items-center mt-4">
+              <span
+                >💧 Humidity:
+                <span id="humidity" class="font-bold">65%</span></span
+              >
+              <span class="md:ml-4"
+                >🌬 Wind: <span id="windSpeed" class="font-bold">10</span>
+              </span>
+            </div>
+          </div>
+          <div class="text-right">
+            <p id="temperature" class="text-2xl sm:text-6xl font-bold">22°C</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts (Hidden by default) -->
+      <div id="charts" class="grid grid-cols-1 lg:grid-cols-2 gap-8 hidden">
+        <!-- Vertical Bar Chart -->
+        <div class="p-6 chart-container">
+          <h3 class="text-lg font-bold mb-2 text-gray-700">
+            5-Day Temperature Overview
+          </h3>
+          <canvas id="barChart"></canvas>
+        </div>
+
+        <!-- Doughnut Chart -->
+        <div class="p-6 chart-container">
+          <h3 class="text-lg font-bold mb-2 text-gray-700">
+            Weather Condition Breakdown
+          </h3>
+          <canvas id="doughnutChart"></canvas>
+        </div>
+
+        <!-- Line Chart -->
+        <div class="p-6 chart-container lg:col-span-2">
+          <h3 class="text-lg font-bold mb-2 text-gray-700">
+            Temperature Changes
+          </h3>
+          <canvas id="lineChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Toggling Sidebar on Small Screens
+      const sidebar = document.querySelector(".sidebar");
+      const hamburger = document.querySelector("#hamburger");
+      const mobileSidebar = document.querySelector("#mobileSidebar");
+      const closeModal = document.querySelector(".close");
+
+      hamburger.addEventListener("click", () => {
+        mobileSidebar.style.display = "block";
+      });
+
+      closeModal.addEventListener("click", () => {
+        mobileSidebar.style.display = "none";
+      });
+
+      window.addEventListener("click", (event) => {
+        if (event.target == mobileSidebar) {
+          mobileSidebar.style.display = "none";
+        }
+      });
+    </script>
+
+    <script src="app.js"></script>
+  </body>
+</html>

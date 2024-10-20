@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weather Table & Chatbot</title>
+    <script
+      src="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.css"
+      crossorigin="anonymous"
+    ></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      /* Teal and bold color scheme */
+      body {
+        background: #f0f9fa;
+      }
+
+      /* Sidebar Styling */
+      .sidebar {
+        background: linear-gradient(to bottom right, #38b2ac, #2c7a7b);
+        transition: transform 0.3s ease-in-out;
+      }
+      .sidebar-hidden {
+        transform: translateX(-100%);
+      }
+
+      /* Sidebar Buttons */
+      .sidebar-button {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        transition: background 0.3s;
+        cursor: pointer;
+      }
+      .sidebar-button:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      .sidebar-button i {
+        margin-right: 0.75rem;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 1024px) {
+        .sidebar {
+          transform: translateX(-100%);
+          position: absolute;
+          top: 0;
+          left: 0;
+          height: 100vh;
+          z-index: 20;
+        }
+        .hamburger {
+          display: block;
+        }
+        .sidebar-active {
+          transform: translateX(0);
+        }
+      }
+
+      /* Modal for Mobile Sidebar */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 30;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 400px;
+        border-radius: 10px;
+      }
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+      }
+      .close:hover,
+      .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      /* Search and Main Content Styling */
+      .search-container {
+        display: flex;
+        align-items: center;
+        background-color: white;
+        border-radius: 9999px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        padding: 0.5rem;
+        max-width: 600px;
+      }
+
+      .search-input {
+        flex: 1;
+        padding-left: 2.5rem;
+        padding-right: 1rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        border: none;
+        outline: none;
+        font-size: 1rem;
+        border-radius: 9999px 0 0 9999px;
+      }
+
+      .search-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 1.25rem;
+        width: 1.25rem;
+        color: #2c7a7b;
+      }
+      .search-btn {
+        background: linear-gradient(to right, #38b2ac, #319795);
+        color: white;
+        padding: 0.75rem 2rem;
+        border: none;
+        border-radius: 0 9999px 9999px 0;
+        font-weight: bold;
+        transition: transform 0.3s ease, background 0.3s ease;
+        cursor: pointer;
+      }
+      .search-btn:hover {
+        transform: scale(1.05);
+        background: linear-gradient(to right, #319795, #2c7a7b);
+      }
+
+      @media screen and (max-width: 768px) {
+        .search-container {
+          width: 100%;
+          padding: 1px;
+        }
+        .search-input {
+          padding-left: 1.5rem;
+          padding-right: 1rem;
+          padding-top: 0.75rem;
+          padding-bottom: 0.75rem;
+        }
+        .search-btn {
+          padding: 0.75rem 1.5rem;
+        }
+      }
+
+      .widget-content {
+        min-height: 200px;
+        animation: fadeIn 0.5s ease-in-out;
+      }
+
+      .weather-widget {
+        border-radius: 15px;
+        color: white;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      .chart-container {
+        background: #ffffff;
+        border: 2px solid #38b2ac;
+        padding: 1rem;
+        border-radius: 15px;
+        animation: fadeIn 0.5s ease-in-out;
+      }
+
+      /* Chatbox Styling */
+      .chatbox {
+        border: 2px solid #38b2ac;
+        border-radius: 15px;
+        padding: 1rem;
+        height: 300px;
+        overflow-y: scroll;
+        background-color: #f7fafc;
+      }
+
+      .chat-input {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #319795;
+        width: 100%;
+        color: black;
+      }
+    </style>
+  </head>
+
+  <body class="h-screen flex">
+    <div class="absolute z-10 top-2 left-2 lg:hidden" id="hamburger">
+      <button class="rounded-full p-2 bg-gray-100 hover:bg-gray-200">
+        <span><img src="hamburger.png" width="20px" /></span>
+      </button>
+    </div>
+    <!-- Sidebar -->
+    <div
+      class="w-64 sidebar text-white shadow-lg flex flex-col justify-between lg:transform-none lg:relative"
+    >
+      <div class="p-6">
+        <h1 class="text-4xl font-bold mb-10 text-center">WeatherNow</h1>
+        <nav class="space-y-4">
+          <a
+            href="/index.html"
+            class="w-full text-left p-2 rounded flex items-center sidebar-button"
+          >
+            <i class="fas fa-home"></i>
+            <span class="font-semibold">Dashboard</span>
+          </a>
+          <a
+            href="/tables.html"
+            class="w-full text-left p-2 rounded flex items-center sidebar-button"
+          >
+            <i class="fas fa-table"></i>
+            <span class="font-semibold">Tables</span>
+          </a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Mobile Sidebar Modal -->
+    <div id="mobileSidebar" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h1 class="text-4xl font-bold mb-10 text-center">WeatherNow</h1>
+        <nav class="space-y-4">
+          <a
+            href="/index.html"
+            class="w-full text-left p-2 rounded flex items-center sidebar-button"
+          >
+            <i class="fas fa-home"></i>
+            <span class="font-semibold">Dashboard</span>
+          </a>
+          <a
+            href="/tables.html"
+            class="w-full text-left p-2 rounded flex items-center sidebar-button"
+          >
+            <i class="fas fa-table"></i>
+            <span class="font-semibold">Tables</span>
+          </a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="flex-1 p-8 overflow-auto relative">
+      <!-- Search section -->
+      <div class="flex justify-center items-center mb-8">
+        <div class="relative search-container">
+          <input
+            id="cityInput"
+            type="text"
+            placeholder="Enter city"
+            class="search-input"
+          />
+          <span class="absolute search-icon"
+            ><i class="fas fa-search"></i
+          ></span>
+          <button id="searchBtn" class="search-btn">Search</button>
+        </div>
+      </div>
+
+      <!-- Weather Table and Chatbot -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Weather Table -->
+        <div>
+          <div class="flex space-x-4 mb-4">
+            <button
+              id="sortAsc"
+              class="px-4 py-2 bg-green-500 text-white rounded"
+            >
+              Sort Asc
+            </button>
+            <button
+              id="sortDesc"
+              class="px-4 py-2 bg-red-500 text-white rounded"
+            >
+              Sort Desc
+            </button>
+            <button
+              id="filterRain"
+              class="px-4 py-2 bg-blue-500 text-white rounded"
+            >
+              Show Rainy Days
+            </button>
+            <button
+              id="highestTemp"
+              class="px-4 py-2 bg-yellow-500 text-white rounded"
+            >
+              Highest Temp
+            </button>
+          </div>
+
+          <table class="min-w-full table-auto border-collapse">
+            <thead>
+              <tr>
+                <th class="px-4 py-2 border">Date</th>
+                <th class="px-4 py-2 border">City</th>
+                <th class="px-4 py-2 border">Temperature</th>
+                <th class="px-4 py-2 border">Condition</th>
+              </tr>
+            </thead>
+            <tbody id="weatherTable"></tbody>
+          </table>
+
+          <div class="mt-4 flex justify-between">
+            <button id="prevPage" class="px-4 py-2 bg-gray-300 rounded">
+              Previous
+            </button>
+            <button id="nextPage" class="px-4 py-2 bg-gray-300 rounded">
+              Next
+            </button>
+          </div>
+        </div>
+
+        <!-- Chatbot Section -->
+        <div class="weather-widget p-6">
+          <div id="chatbox" class="chatbox"></div>
+          <input
+            type="text"
+            id="chatInput"
+            class="chat-input"
+            placeholder="Ask the chatbot a question..."
+          />
+          <button
+            id="chatBtn"
+            class="mt-2 bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="tableScript.js"></script>
+    <script>
+      // Toggling Sidebar on Small Screens
+      const sidebar = document.querySelector(".sidebar");
+      const hamburger = document.querySelector("#hamburger");
+      const mobileSidebar = document.querySelector("#mobileSidebar");
+      const closeModal = document.querySelector(".close");
+
+      hamburger.addEventListener("click", () => {
+        mobileSidebar.style.display = "block";
+      });
+
+      closeModal.addEventListener("click", () => {
+        mobileSidebar.style.display = "none";
+      });
+
+      window.addEventListener("click", (event) => {
+        if (event.target == mobileSidebar) {
+          mobileSidebar.style.display = "none";
+        }
+      });
+    </script>
+  </body>
+</html>
