@@ -103,7 +103,11 @@ highestTempBtn.addEventListener("click", () => {
   renderTable();
 });
 
-// Chatbot functionality using OpenWeather context
+const geminiApiKey = "AIzaSyBoTeby6LkrRBY-z19uvPYFrCMLP9uaKVY"; // Replace with your Gemini API Key
+const geminiApiUrl =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
+
+// Chatbot functionality using Gemini API
 chatBtn.addEventListener("click", () => {
   const userMessage = chatInput.value;
   if (userMessage.trim() === "") return;
@@ -111,33 +115,70 @@ chatBtn.addEventListener("click", () => {
   const userChat = `<p class="bg-gray-200 text-black p-2 rounded-lg mb-2">${userMessage}</p>`;
   chatbox.innerHTML += userChat;
 
-  let botResponse = "";
-
-  // Handle weather-related questions only
+  // Check if the query contains the word "weather"
   if (userMessage.toLowerCase().includes("weather")) {
-    if (userMessage.includes("highest temperature")) {
-      const highestTemp = Math.max(...forecasts.map((f) => f.main.temp));
-      botResponse = `The highest temperature in the forecast is ${highestTemp}°C.`;
-    } else if (userMessage.includes("lowest temperature")) {
-      const lowestTemp = Math.min(...forecasts.map((f) => f.main.temp));
-      botResponse = `The lowest temperature in the forecast is ${lowestTemp}°C.`;
-    } else if (userMessage.includes("average temperature")) {
-      const avgTemp = (
-        forecasts.reduce((sum, forecast) => sum + forecast.main.temp, 0) /
-        forecasts.length
-      ).toFixed(2);
-      botResponse = `The average temperature in the forecast is ${avgTemp}°C.`;
-    } else {
-      botResponse = `Sorry, I can only answer specific weather-related queries like highest, lowest, or average temperature.`;
-    }
+    // If the query is about the weather, process the forecast data and send the query
+    fetchGeminiResponse(userMessage);
   } else {
-    botResponse = `I am currently able to answer weather-related queries only.`;
+    // If the query is not weather-related, respond with a custom message
+    displayBotResponse("I can only help with weather-related questions.");
   }
 
-  displayBotResponse(botResponse);
   chatInput.value = "";
   chatbox.scrollTop = chatbox.scrollHeight;
 });
+
+// Function to fetch response from Gemini API
+function fetchGeminiResponse(query) {
+  const forecastSummary = generateForecastSummary();
+
+  fetch(geminiApiUrl + `?key=${geminiApiKey}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            {
+              text: `User Query: ${query}. \n Forecast Data: ${forecastSummary}`,
+            },
+          ],
+        },
+      ],
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      const botResponse =
+        data.candidates[0]?.content?.parts[0]?.text ||
+        "Sorry, I couldn't generate a response.";
+      displayBotResponse(botResponse);
+    })
+    .catch((error) => {
+      console.error("Error fetching Gemini API response:", error);
+      displayBotResponse(
+        "Sorry, I'm having trouble answering your question right now."
+      );
+    });
+}
+
+// Function to generate a summary of the forecast data
+function generateForecastSummary() {
+  // For simplicity, you can summarize the first 3-5 items in the forecast data
+  let summary = "";
+
+  forecasts.slice(0, 5).forEach((forecast) => {
+    const date = new Date(forecast.dt * 1000).toLocaleString();
+    const temperature = forecast.main.temp;
+    const condition = forecast.weather[0].description;
+
+    summary += `On ${date}, the temperature will be ${temperature}°C with ${condition}. `;
+  });
+
+  return summary;
+}
 
 function displayBotResponse(response) {
   const botChat = `<p class="bg-gray-800 text-white p-2 rounded-lg mb-2">${response}</p>`;
